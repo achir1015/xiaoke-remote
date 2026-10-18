@@ -2,6 +2,10 @@
 
 # 小柯機器人遠端連線
 
+<img width="1919" height="1078" alt="image" src="https://github.com/user-attachments/assets/3b95714b-d7c8-41e8-8176-ef4d034d0bbc" />
+
+https://github.com/user-attachments/assets/f021ec73-9b7e-444c-8b7d-02eb1b93df44
+
 Windows 11 ↔ Windows 11、Windows 11 ↔ macOS 的遠端協助工具。一端是**主控端**、一端是**被控端**：主控端輸入被控端的 **ID + 授權碼**，即可看到並操作被控端的畫面。
 
 架構參考開源專案 [RustDesk](https://github.com/rustdesk/rustdesk)：ID 伺服器負責讓兩端找到彼此，畫面、聲音、檔案走 **WebRTC 點對點加密直連**，直連不通時才經 TURN 中繼。可使用公用伺服器（免設定），也可用 `server/` 自架。
