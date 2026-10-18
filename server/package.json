@@ -1,0 +1,9 @@
+{
+  "name": "xiaoke-remote-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "小柯機器人遠端連線：自架 ID／信令伺服器（相當於 RustDesk 的 hbbs）",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "peer": "1.0.2" }
+}

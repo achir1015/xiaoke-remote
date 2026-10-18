@@ -1,0 +1,91 @@
+{
+  "name": "xiaoke-remote",
+  "productName": "小柯機器人遠端連線",
+  "version": "1.0.0",
+  "description": "小柯機器人遠端連線：Windows 11 / macOS 遠端桌面（遠端操控、檔案傳輸、文字語音聊天、資料夾授權、線上教學）",
+  "main": "src/main/main.js",
+  "author": {
+    "name": "吳玉柱",
+    "email": "achir1015@gmail.com"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/achir1015/xiaoke-remote",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/",
+    "server": "node server/server.js",
+    "dist:win": "electron-builder --win nsis --x64 --publish never",
+    "dist:mac": "electron-builder --mac dmg --publish never",
+    "e2e": "node e2e/run.mjs"
+  },
+  "dependencies": {
+    "@nut-tree-fork/nut-js": "4.2.6",
+    "pdfjs-dist": "4.10.38",
+    "peerjs": "1.5.5"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "^25.1.8",
+    "playwright-core": "1.48.2"
+  },
+  "build": {
+    "appId": "com.achir.xiaokeremote",
+    "productName": "小柯機器人遠端連線",
+    "artifactName": "XiaokeRemote-${version}-${os}-${arch}.${ext}",
+    "copyright": "Copyright © 2026 吳玉柱",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json",
+      "node_modules/**/*",
+      "!node_modules/**/test/**",
+      "!node_modules/pdfjs-dist/legacy/**",
+      "!node_modules/pdfjs-dist/types/**"
+    ],
+    "asarUnpack": [
+      "node_modules/@nut-tree-fork/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "executableName": "XiaokeRemote"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "小柯機器人遠端連線",
+      "uninstallDisplayName": "小柯機器人遠端連線",
+      "language": "1028",
+      "installerLanguages": [
+        "zh_TW"
+      ]
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.png",
+      "category": "public.app-category.utilities",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "語音交談需要使用麥克風。",
+        "NSScreenCaptureUsageDescription": "被控端需要分享螢幕畫面給主控端。",
+        "NSAppleEventsUsageDescription": "遠端操控需要傳送鍵盤與滑鼠事件。"
+      },
+      "identity": "-"
+    },
+    "dmg": {
+      "title": "小柯機器人遠端連線 ${version}"
+    },
+    "npmRebuild": false
+  }
+}

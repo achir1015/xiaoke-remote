@@ -1,0 +1,26 @@
+# 自架伺服器：ID／信令（xiaoke-id，相當於 RustDesk hbbs）＋ TURN 中繼（coturn，相當於 RustDesk hbbr）
+# 使用前請把 TURN_PASSWORD 與 external-ip 改成你自己的值。
+services:
+  xiaoke-id:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      - PORT=9000
+      - KEY=peerjs
+
+  turn:
+    image: coturn/coturn:4.6.2
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - -n
+      - --listening-port=3478
+      - --fingerprint
+      - --lt-cred-mech
+      - --user=xiaoke:${TURN_PASSWORD:-change-me}
+      - --realm=xiaoke-remote
+      - --min-port=49160
+      - --max-port=49200
+      # - --external-ip=你的公網IP

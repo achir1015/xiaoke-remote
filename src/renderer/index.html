@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https: wss: ws: http: blob: data:; worker-src 'self' blob:; font-src 'self' data:">
+<title>小柯機器人遠端連線</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><img src="../../assets/icon.png" alt=""><span>小柯機器人遠端連線</span></div>
+  <nav class="tabs" id="mainTabs">
+    <button data-view="home" class="active">連線</button>
+    <button data-view="folders">資料夾授權</button>
+    <button data-view="settings">設定</button>
+    <button data-view="about">說明</button>
+  </nav>
+  <div class="netstat" id="netStat"><i></i><span>連線伺服器中…</span></div>
+</header>
+
+<main>
+  <!-- 首頁 -->
+  <section class="view active" id="view-home">
+    <div class="permwarn hidden" id="permWarn"></div>
+    <div class="cards">
+      <div class="card host-card">
+        <h2>🛡️ 被控端：允許遠端協助本機</h2>
+        <p class="muted">把下面的 <b>ID</b> 與 <b>授權碼</b> 告訴協助你的人。</p>
+        <label>本機 ID</label>
+        <div class="bigval"><span id="myId">— — —</span><button class="icon" id="copyId" title="複製">📋</button></div>
+        <label>授權碼</label>
+        <div class="bigval code"><span id="myCode">——</span>
+          <button class="icon" id="copyCode" title="複製">📋</button>
+          <button class="icon" id="refreshCode" title="更換授權碼">🔄</button>
+        </div>
+        <p class="muted small" id="codeHint"></p>
+        <div class="hoststate" id="hostState">等待連線</div>
+      </div>
+      <div class="card ctrl-card">
+        <h2>🖥️ 主控端：控制遠端電腦</h2>
+        <p class="muted">輸入對方的 ID 與授權碼即可進入對方畫面。</p>
+        <label for="remoteId">遠端 ID</label>
+        <input id="remoteId" inputmode="numeric" placeholder="例如 123 456 789" autocomplete="off">
+        <label for="remoteCode">授權碼</label>
+        <input id="remoteCode" placeholder="6 碼授權碼" autocomplete="off" maxlength="32">
+        <div class="row">
+          <button class="primary" id="btnConnect">連線並操控</button>
+          <button id="btnConnectView" title="只看畫面、不操控（例如線上教學、檔案傳輸）">僅檢視連線</button>
+        </div>
+        <div class="recent"><h3>最近連線</h3><ul id="recentList"></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 資料夾授權 -->
+  <section class="view" id="view-folders">
+    <div class="card wide">
+      <h2>📁 被控端資料夾授權</h2>
+      <p class="muted">主控端只能存取這裡列出的資料夾。<b>可讀</b>：瀏覽、下載、執行安裝檔（需你確認）；<b>可寫</b>：上傳、建立資料夾、刪除（看不到檔案）；<b>可讀寫</b>：全部。</p>
+      <table class="tbl"><thead><tr><th>資料夾</th><th style="width:220px">權限</th><th style="width:80px"></th></tr></thead><tbody id="folderRows"></tbody></table>
+      <div class="row"><button class="primary" id="addFolder">＋ 新增授權資料夾</button>
+        <button id="addInstallFolder" title="建立「遠端安裝區」資料夾並授權可讀寫，方便對方上傳安裝檔">＋ 建立「遠端安裝區」</button></div>
+    </div>
+  </section>
+
+  <!-- 設定 -->
+  <section class="view" id="view-settings">
+    <div class="card wide form">
+      <h2>⚙️ 設定</h2>
+      <label>裝置名稱（對方會看到）</label><input id="setName">
+      <fieldset><legend>被控端</legend>
+        <label><input type="checkbox" id="setConfirm"> 有人連入時需我按「接受」</label>
+        <label><input type="checkbox" id="setAllowControl"> 允許主控端操控滑鼠鍵盤</label>
+        <label>授權碼模式</label>
+        <select id="setCodeMode"><option value="random">每次連線後自動更換（較安全）</option><option value="fixed">固定授權碼（無人值守）</option></select>
+        <div id="fixedCodeRow"><label>固定授權碼（至少 6 碼）</label><input id="setFixedCode" type="password" autocomplete="new-password"></div>
+        <label><input type="checkbox" id="setTray"> 關閉視窗時縮到系統匣，繼續接受連線</label>
+      </fieldset>
+      <fieldset><legend>主控端</legend>
+        <label><input type="checkbox" id="setSwap"> Mac ⌘ 與 Windows Ctrl 自動對應</label>
+        <label>畫面品質</label>
+        <select id="setQuality"><option value="auto">自動</option><option value="high">清晰（文字優先）</option><option value="smooth">流暢（動態優先）</option></select>
+      </fieldset>
+      <fieldset><legend>連線伺服器（ID 伺服器 / 中繼）</legend>
+        <select id="setServerMode"><option value="public">公用伺服器（免設定）</option><option value="custom">自架伺服器（server/ 資料夾）</option></select>
+        <div id="customServer" class="grid2">
+          <div><label>主機</label><input id="setHost" placeholder="例如 remote.example.com"></div>
+          <div><label>埠</label><input id="setPort" type="number"></div>
+          <div><label>路徑</label><input id="setPath" placeholder="/"></div>
+          <div><label>金鑰</label><input id="setKey" placeholder="peerjs"></div>
+          <label><input type="checkbox" id="setSecure"> 使用 HTTPS/WSS</label>
+        </div>
+        <label>STUN 伺服器（一行一個）</label><textarea id="setStun" rows="2"></textarea>
+        <label>TURN 中繼伺服器（跨防火牆用，可留空）</label>
+        <div class="grid3"><input id="setTurnUrl" placeholder="turn:host:3478"><input id="setTurnUser" placeholder="帳號"><input id="setTurnPass" type="password" placeholder="密碼"></div>
+      </fieldset>
+      <div class="row"><button class="primary" id="saveSettings">儲存設定</button><button id="newDeviceId">重新產生本機 ID</button></div>
+    </div>
+  </section>
+
+  <!-- 說明 -->
+  <section class="view" id="view-about">
+    <div class="card wide about">
+      <img src="../../assets/icon.png" alt="" class="about-logo">
+      <h2>小柯機器人遠端連線 <span id="aboutVer"></span></h2>
+      <p>Windows 11 ↔ Windows 11、Windows 11 ↔ macOS 遠端協助工具。架構參考開源專案 RustDesk（ID 伺服器 + 點對點直連 + 中繼備援），畫面、聲音與檔案皆以 WebRTC 端對端加密傳輸。</p>
+      <ul>
+        <li>遠端操控：輸入 ID + 授權碼進入被控端畫面，操作滑鼠鍵盤、切換多螢幕、同步剪貼簿。</li>
+        <li>檔案上傳下載：瀏覽被控端授權資料夾、上傳下載、建立資料夾、遠端執行安裝檔。</li>
+        <li>互相聊天：文字、語音交談、畫面擷取（可裁切）傳送、圖片與檔案互傳。</li>
+        <li>資料夾授權：被控端自行設定可讀／可寫／可讀寫。</li>
+        <li>線上教學：主控端把簡報（PDF、PowerPoint、Keynote、圖片）或自己的螢幕推送到被控端，同步翻頁、雷射筆與畫筆。</li>
+      </ul>
+      <p class="muted">開發者：吳玉柱（achir1015@gmail.com）<br>原始碼：<a href="https://github.com/achir1015/xiaoke-remote" target="_blank">github.com/achir1015/xiaoke-remote</a></p>
+      <p class="muted small" id="aboutSys"></p>
+    </div>
+  </section>
+
+  <!-- 主控端：遠端工作階段 -->
+  <section class="view session" id="view-session">
+    <div class="sbar">
+      <b id="sTitle">遠端</b>
+      <select id="sDisplay" title="切換遠端螢幕"></select>
+      <label class="switch" title="開啟後可操作遠端滑鼠鍵盤"><input type="checkbox" id="sControl" checked><span>操控</span></label>
+      <div class="menu"><button>⌨️ 特殊鍵 ▾</button><div class="menu-list" id="sKeys"></div></div>
+      <button id="sClipSend" title="把本機剪貼簿文字送到遠端">📋→ 剪貼簿</button>
+      <button id="sClipGet" title="取得遠端剪貼簿文字">📋← 剪貼簿</button>
+      <button id="sShot" title="擷取遠端畫面並傳到聊天">📸 擷取遠端</button>
+      <button id="sFit" title="切換：符合視窗 / 原始大小">🔍 縮放</button>
+      <button id="sFull" title="全螢幕">⛶</button>
+      <span class="spacer"></span>
+      <span class="stat" id="sStat"></span>
+      <button class="danger" id="sClose">中斷連線</button>
+    </div>
+    <div class="sbody">
+      <div class="stage" id="stage">
+        <div class="vwrap" id="vwrap"><video id="rvideo" autoplay playsinline muted tabindex="0"></video></div>
+        <div class="stage-msg" id="stageMsg">等待遠端畫面…</div>
+        <div class="teach-host hidden" id="teachHostStage"></div>
+      </div>
+      <aside class="drawer" id="drawer">
+        <nav class="dtabs"><button data-pane="chat" class="active">💬 聊天<i class="badge hidden" id="chatBadge"></i></button><button data-pane="files">📁 檔案</button><button data-pane="teach">🎓 教學</button></nav>
+        <div class="pane active" data-pane="chat" id="ctrlChat"></div>
+        <div class="pane" data-pane="files" id="ctrlFiles"></div>
+        <div class="pane" data-pane="teach" id="ctrlTeach"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 被控端：連線中 -->
+  <section class="view session" id="view-hosting">
+    <div class="sbar host">
+      <b>🔴 <span id="hTitle">遠端連線中</span></b>
+      <span class="chip" id="hCtl">可操控</span>
+      <span class="spacer"></span>
+      <label class="switch"><input type="checkbox" id="hAllow" checked><span>允許操控</span></label>
+      <button class="danger" id="hClose">中斷連線</button>
+    </div>
+    <div class="sbody">
+      <div class="hostinfo">
+        <h2>對方正在協助你</h2>
+        <p>對方可以看到你的螢幕<span id="hCtlText">並操作滑鼠鍵盤</span>。隨時可按「中斷連線」結束。</p>
+        <div id="hLog" class="hlog"></div>
+      </div>
+      <aside class="drawer"><nav class="dtabs"><button class="active">💬 聊天</button></nav><div class="pane active" id="hostChat"></div></aside>
+    </div>
+  </section>
+</main>
+
+<!-- 線上教學（被控端全螢幕） -->
+<div class="teach-overlay hidden" id="teachOverlay">
+  <div class="teach-top"><b>🎓 線上教學</b><span id="tTitle"></span><span class="spacer"></span><span id="tPage"></span><button id="tWindow">視窗/全螢幕</button></div>
+  <div class="teach-stage" id="teachStudentStage"></div>
+</div>
+
+<!-- 對話框 -->
+<div class="modal hidden" id="modal"><div class="box"><h3 id="mTitle"></h3><div id="mBody"></div><div class="row end" id="mBtns"></div></div></div>
+<div class="toasts" id="toasts"></div>
+<audio id="voiceAudio" autoplay></audio>
+
+<script src="../../node_modules/peerjs/dist/peerjs.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
