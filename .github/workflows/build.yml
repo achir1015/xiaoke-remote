@@ -26,10 +26,8 @@ jobs:
         include:
           - os: windows-latest
             args: --win nsis --x64
-          - os: macos-latest   # Apple Silicon
-            args: --mac dmg --arm64
-          - os: macos-13       # Intel
-            args: --mac dmg --x64
+          - os: macos-latest   # 一次建 Apple 晶片與 Intel 兩版（nut-js 的 libnut 是 universal binary）
+            args: --mac dmg --arm64 --x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
