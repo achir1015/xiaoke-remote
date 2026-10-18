@@ -26,8 +26,15 @@ jobs:
         include:
           - os: windows-latest
             args: --win nsis --x64
-          - os: macos-latest   # 一次建 Apple 晶片與 Intel 兩版（nut-js 的 libnut 是 universal binary）
-            args: --mac dmg --arm64 --x64
+            name: win-x64
+          # Apple 晶片與 Intel 分開建置（同時建兩個 dmg 會發生 hdiutil 卸載失敗）；
+          # Intel 版在 Apple 晶片機器上交叉建置，nut-js 的 libnut 是 universal binary
+          - os: macos-latest
+            args: --mac dmg --arm64
+            name: mac-arm64
+          - os: macos-latest
+            args: --mac dmg --x64
+            name: mac-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +47,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - uses: actions/upload-artifact@v4
         with:
-          name: installer-${{ matrix.os }}
+          name: installer-${{ matrix.name }}
           path: |
             dist/*.exe
             dist/*.dmg
