@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('xk', {
   },
   teach: { prepare: inv('teach:prepare') },
   folders: { installArea: inv('folders:installArea') },
-  win: { fullscreen: inv('win:fullscreen'), attention: inv('win:attention') },
+  win: { fullscreen: inv('win:fullscreen'), attention: inv('win:attention'), minimize: inv('win:minimize'), restore: inv('win:restore') },
   clip: { read: inv('clip:read'), write: inv('clip:write') },
   openExternal: inv('app:openExternal'),
   pathOf: (file) => { try { return webUtils.getPathForFile(file); } catch { return ''; } },

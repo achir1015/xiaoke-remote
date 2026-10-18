@@ -36,6 +36,7 @@ function defaults() {
     allowControl: true,
     swapMods: true,
     closeToTray: true,
+    autoMinimize: true, // 被控端接受連線後自動縮小視窗，避免擋住畫面
     quality: 'auto', // auto | high | smooth
     folders: [],
     recent: [],
@@ -387,10 +388,17 @@ handle('teach:prepare', async (paths) => {
 });
 
 // ---- 視窗與其他 ----
-handle('win:fullscreen', (on) => { if (win) { if (on) win.show(); win.setFullScreen(!!on); } });
+function bringUp() {
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  if (!win.isVisible()) win.show();
+}
+handle('win:fullscreen', (on) => { if (win) { if (on) bringUp(); win.setFullScreen(!!on); } });
+handle('win:minimize', () => { if (win && !win.isFullScreen()) win.minimize(); });
+handle('win:restore', () => bringUp());
 handle('win:attention', (title, body) => {
   if (!win) return;
-  if (!win.isVisible() || win.isMinimized()) win.show();
+  bringUp(); // 被控端連線後會自動縮小，有聊天、檔案、語音邀請時再自動開啟
   if (!win.isFocused()) win.flashFrame(true);
   if (title && Notification.isSupported() && !win.isFocused()) new Notification({ title, body: body || '' }).show();
 });

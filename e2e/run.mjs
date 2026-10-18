@@ -62,6 +62,8 @@ try {
   await a.click('#btnConnect');
   ok('A 進入遠端工作階段', await until(() => a.evaluate(() => document.querySelector('#view-session').classList.contains('active'))));
   ok('B 顯示被連線中', await until(() => b.evaluate(() => document.querySelector('#view-hosting').classList.contains('active'))));
+  const bMin = () => B.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMinimized());
+  ok('B 接受連線後自動縮小', await until(() => bMin(), 10000));
   const vw = await until(() => a.evaluate(() => document.querySelector('#rvideo').videoWidth || 0), 20000);
   ok('A 收到遠端畫面', vw > 0, `寬 ${vw}`);
   await a.screenshot({ path: path.join(FIX, 'shot-controller.png') });
@@ -80,6 +82,7 @@ try {
   await a.fill('#ctrlChat textarea', '哈囉，我是主控端');
   await a.press('#ctrlChat textarea', 'Enter');
   ok('B 收到文字訊息', await until(() => b.evaluate(() => document.querySelector('#hostChat .msgs').textContent.includes('哈囉，我是主控端'))));
+  ok('B 收到訊息時自動開啟視窗', await until(async () => !(await bMin()), 10000));
   await b.fill('#hostChat textarea', '收到，被控端回覆');
   await b.press('#hostChat textarea', 'Enter');
   ok('A 收到回覆', await until(() => a.evaluate(() => document.querySelector('#ctrlChat .msgs').textContent.includes('收到，被控端回覆'))));

@@ -75,6 +75,7 @@
         <label>授權碼模式</label>
         <select id="setCodeMode"><option value="random">每次連線後自動更換（較安全）</option><option value="fixed">固定授權碼（無人值守）</option></select>
         <div id="fixedCodeRow"><label>固定授權碼（至少 6 碼）</label><input id="setFixedCode" type="password" autocomplete="new-password"></div>
+        <label><input type="checkbox" id="setAutoMin"> 接受連線後自動縮小視窗（有聊天、檔案、語音、教學時會自動開啟）</label>
         <label><input type="checkbox" id="setTray"> 關閉視窗時縮到系統匣，繼續接受連線</label>
       </fieldset>
       <fieldset><legend>主控端</legend>
@@ -189,6 +190,7 @@
       <span class="chip" id="hCtl">可操控</span>
       <span class="spacer"></span>
       <label class="switch"><input type="checkbox" id="hAllow" checked><span>允許操控</span></label>
+      <button id="hMin" title="縮小視窗，不擋住對方操作的畫面">⤓ 縮小視窗</button>
       <button class="danger" id="hClose">中斷連線</button>
     </div>
     <div class="sbody">

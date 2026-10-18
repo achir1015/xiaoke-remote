@@ -169,6 +169,7 @@ function bindSettings() {
     $('#setCodeMode').value = s().codeMode;
     $('#setFixedCode').value = s().fixedCode || '';
     $('#setTray').checked = s().closeToTray;
+    $('#setAutoMin').checked = s().autoMinimize !== false;
     $('#setSwap').checked = s().swapMods;
     $('#setQuality').value = s().quality;
     $('#setServerMode').value = s().server.mode;
@@ -194,6 +195,7 @@ function bindSettings() {
       codeMode: $('#setCodeMode').value,
       fixedCode: fixed,
       closeToTray: $('#setTray').checked,
+      autoMinimize: $('#setAutoMin').checked,
       swapMods: $('#setSwap').checked,
       quality: $('#setQuality').value,
       server: { mode: $('#setServerMode').value, host: $('#setHost').value.trim(), port: Number($('#setPort').value) || 9000, path: $('#setPath').value.trim() || '/', key: $('#setKey').value.trim() || 'peerjs', secure: $('#setSecure').checked },
@@ -377,11 +379,14 @@ async function startHosting(ch, conn, hello) {
     updCtl();
   };
   $('#hClose').onclick = () => ch.close();
+  $('#hMin').onclick = () => xk.win.minimize();
   $('#hLog').innerHTML = '';
   sess.log(`${sess.name}（${OS_NAME[sess.os] || sess.os}）已連線`);
   sess.chat.sys(`已與 ${sess.name} 連線`);
   showView('hosting');
   hostState(`${sess.name} 連線中`);
+  // 自動縮小，主控端第一眼看到的就是被控端桌面；有聊天、檔案、語音邀請、教學時會自動再開啟
+  if (S.settings.autoMinimize !== false) setTimeout(() => { if (S.host === sess) xk.win.minimize(); }, 600);
   ch.on('close', () => endHosting());
   sess.stopStream = () => stream.getTracks().forEach((t) => t.stop());
 }
@@ -399,6 +404,7 @@ function endHosting() {
   if (S.settings.codeMode !== 'fixed') newCode();
   renderHome();
   showView('home');
+  xk.win.restore();
   hostState(`上次連線：${sess.name}，於 ${fmtTime(Date.now())} 結束`);
   toast(`${sess.name} 已中斷連線`);
 }
