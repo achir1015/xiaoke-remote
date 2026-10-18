@@ -39,6 +39,7 @@ function defaults() {
     quality: 'auto', // auto | high | smooth
     folders: [],
     recent: [],
+    devices: [], // 多台監看清單 [{id, code, name}]
   };
 }
 let settings = defaults();

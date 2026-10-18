@@ -41,20 +41,32 @@ export class Channel extends Emitter {
     this.cancelled = new Set();
     this.seq = 0;
     this.closed = false;
-    ctl.on('data', (m) => this._onData(m));
+    this.lastSeen = Date.now();
+    ctl.on('data', (m) => { this.lastSeen = Date.now(); this._onData(m); });
     ctl.on('close', () => this._close('ctl'));
+    // 心跳：對方程式當掉或網路斷掉時，WebRTC 要很久才會發現，這裡 12 秒沒收到任何資料就判定斷線
+    this.hb = setInterval(() => {
+      if (Date.now() - this.lastSeen > 12000) {
+        try { this.ctl.close(); } catch {}
+        try { this.file && this.file.close(); } catch {}
+        this._close();
+        return;
+      }
+      this.send({ t: 'ping' });
+    }, 3000);
     ctl.on('error', (e) => console.warn('ctl error', e));
   }
 
   attachFile(conn) {
     this.file = conn;
-    conn.on('data', (m) => this._onData(m));
+    conn.on('data', (m) => { this.lastSeen = Date.now(); this._onData(m); });
     conn.on('close', () => { if (this.file === conn) this.file = null; });
   }
 
   _close() {
     if (this.closed) return;
     this.closed = true;
+    clearInterval(this.hb);
     for (const p of this.pending.values()) p.reject(new Error('連線已中斷'));
     this.pending.clear();
     for (const s of this.sinks.values()) s.fail(new Error('連線已中斷'));
@@ -84,6 +96,7 @@ export class Channel extends Emitter {
   _onData(m) {
     if (!m || typeof m !== 'object' || !m.t) return;
     switch (m.t) {
+      case 'ping': break;
       case 'req': this._serve(m); break;
       case 'res': {
         const p = this.pending.get(m.id);

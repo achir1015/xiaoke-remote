@@ -1,17 +1,17 @@
 // 小柯機器人遠端連線：主畫面、被控端、主控端流程
 import { $, $$, h, toast, modal, closeModal, errMsg, fmtId, fmtTime, randCode, sleep } from './util.js';
 import { createPeer, Channel, peerIdOf, PREFIX } from './net.js';
-import { ChatPanel, cropDialog } from './chat.js';
-import { FileManager, serveHostFiles } from './files.js';
-import { TeachController, TeachStudent } from './teach.js';
+import { ChatPanel } from './chat.js';
+import { serveHostFiles } from './files.js';
+import { TeachStudent } from './teach.js';
+import { initClient, startClient, hasLinks, onClientCall, onPeerError, onMultiShown } from './client.js';
 
 const xk = window.xk;
 const S = {
   settings: null, info: null, peer: null, code: '', fails: 0, lockUntil: 0,
-  host: null,   // 被控端工作階段
-  client: null, // 主控端工作階段
-  connecting: null,
+  host: null,   // 被控端工作階段（主控端的連線在 client.js 的 S.links）
 };
+S.saveSettings = (patch) => xk.settings.set(patch);
 window.__xk = S; // 自動化測試用
 
 const OS_NAME = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' };
@@ -27,7 +27,7 @@ async function boot() {
   bindHome();
   bindFolders();
   bindSettings();
-  bindSession();
+  initClient(S, { showView, renderHome });
   newCode();
   renderHome();
   checkMacPermissions();
@@ -71,7 +71,7 @@ async function connectPeer() {
   peer.on('open', () => { if (S.peer === peer) setNet('ok', '已上線'); });
   peer.on('error', (e) => {
     console.warn('peer error', e.type, e);
-    if (e.type === 'peer-unavailable' && S.connecting) S.connecting.fail(new Error('找不到這個 ID，或對方目前不在線上'));
+    if (e.type === 'peer-unavailable') onPeerError(e);
     else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(e.type)) setNet('bad', 'ID 伺服器連線異常');
   });
 }
@@ -81,6 +81,7 @@ function showView(name) {
   $$('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-' + name));
   $$('#mainTabs button').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
   document.body.classList.toggle('in-session', name === 'session' || name === 'hosting');
+  if (name === 'multi') onMultiShown();
 }
 function bindTabs() { $$('#mainTabs button').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view))); }
 
@@ -201,10 +202,10 @@ function bindSettings() {
     });
     renderHome();
     toast('設定已儲存', 'ok');
-    if (before !== JSON.stringify([s().server, s().stun, s().turn]) && !S.host && !S.client) connectPeer();
+    if (before !== JSON.stringify([s().server, s().stun, s().turn]) && !S.host && !hasLinks()) connectPeer();
   };
   $('#newDeviceId').onclick = async () => {
-    if (S.host || S.client) return toast('連線中無法更換 ID', 'err');
+    if (S.host || hasLinks()) return toast('連線中無法更換 ID', 'err');
     const ok = await modal('重新產生本機 ID', '更換後，對方需要使用新的 ID 才能連到這台電腦。確定嗎？', [{ label: '取消', value: false }, { label: '更換', value: true, primary: true }]);
     if (!ok) return;
     S.settings.deviceId = await xk.settings.newDeviceId();
@@ -228,10 +229,8 @@ function onConnection(conn) {
 
 function onCall(call) {
   const kind = call.metadata && call.metadata.kind;
-  const sess = [S.host, S.client].find((s) => s && s.remotePeer === call.peer);
-  if (kind === 'screen' && S.client && S.client.remotePeer === call.peer) return S.client.onScreen(call);
-  if (kind === 'screen' && S.connecting && S.connecting.remotePeer === call.peer) { S.connecting.pendingScreen = call; return; }
-  if (kind === 'voice' && sess) return sess.chat.onVoiceCall(call);
+  if (onClientCall(call)) return;
+  if (kind === 'voice' && S.host && S.host.remotePeer === call.peer) return S.host.chat.onVoiceCall(call);
   if (kind === 'teach-screen' && S.host && S.host.remotePeer === call.peer) return S.host.student.onScreenCall(call);
   call.close();
 }
@@ -245,7 +244,7 @@ function hostHandshake(conn) {
     if (decided) return;
     decided = true;
     const fail = (reason) => { clearTimeout(timer); ch.send({ t: 'auth-fail', reason }); setTimeout(() => ch.close(), 300); };
-    if (S.host || S.client) return fail('對方目前正在另一個遠端連線中');
+    if (S.host || hasLinks()) return fail('對方目前正在另一個遠端連線中');
     if (Date.now() < S.lockUntil) return fail('授權碼錯誤次數過多，請 1 分鐘後再試');
     if (String(m.code || '').trim().toUpperCase() !== expectedCode().toUpperCase()) {
       if (++S.fails >= 5) { S.fails = 0; S.lockUntil = Date.now() + 60000; }
@@ -288,7 +287,18 @@ async function tuneSender(call, quality) {
     if (!s.track || s.track.kind !== 'video') continue;
     const p = s.getParameters();
     p.encodings = p.encodings && p.encodings.length ? p.encodings : [{}];
-    p.encodings[0].maxBitrate = quality === 'high' ? 10e6 : quality === 'smooth' ? 4e6 : 6e6;
+    const enc = p.encodings[0];
+    if (quality === 'thumb') {
+      // 多台分割畫面的縮圖：約 640 寬、5fps、350kbps，20 台合計約 7Mbps
+      const w = (s.track.getSettings && s.track.getSettings().width) || 1920;
+      enc.scaleResolutionDownBy = Math.max(1, w / 640);
+      enc.maxBitrate = 350e3;
+      enc.maxFramerate = 5;
+    } else {
+      enc.scaleResolutionDownBy = 1;
+      enc.maxFramerate = 30;
+      enc.maxBitrate = quality === 'high' ? 10e6 : quality === 'smooth' ? 4e6 : 6e6;
+    }
     p.degradationPreference = quality === 'smooth' ? 'maintain-framerate' : 'maintain-resolution';
     try { await s.setParameters(p); } catch (e) { console.warn(e); }
   }
@@ -391,249 +401,6 @@ function endHosting() {
   showView('home');
   hostState(`上次連線：${sess.name}，於 ${fmtTime(Date.now())} 結束`);
   toast(`${sess.name} 已中斷連線`);
-}
-
-// ================= 主控端 =================
-async function startClient(viewOnly) {
-  if (S.client || S.connecting) return;
-  if (S.host) return toast('本機正在被遠端連線中', 'err');
-  if (!S.peer || S.peer.disconnected) return toast('尚未連上 ID 伺服器，請稍候', 'err');
-  const id = $('#remoteId').value.replace(/\D/g, '');
-  const code = $('#remoteCode').value.trim();
-  if (id.length < 6) return toast('請輸入正確的遠端 ID', 'err');
-  if (!code) return toast('請輸入授權碼', 'err');
-  if (id === String(S.settings.deviceId)) return toast('不能連線到自己', 'err');
-  const remotePeer = peerIdOf(id);
-  const btn = $('#btnConnect');
-  btn.disabled = true; btn.textContent = '連線中…';
-  let ch = null;
-  const pending = S.connecting = { remotePeer };
-  try {
-    const result = await new Promise((resolve, reject) => {
-      pending.fail = reject;
-      const timer = setTimeout(() => reject(new Error('連線逾時，請確認對方在線上，或在設定中加入 TURN 中繼伺服器')), 25000);
-      const conn = S.peer.connect(remotePeer, { label: 'xk-ctl', reliable: true, serialization: 'binary' });
-      conn.on('error', (e) => reject(e));
-      conn.on('open', () => {
-        ch = new Channel(conn);
-        ch.send({ t: 'hello', code, name: S.settings.deviceName, os: S.info.platform, viewOnly, ver: S.info.version });
-        ch.on('auth-wait', () => { clearTimeout(timer); btn.textContent = '等待對方接受…'; setTimeout(() => reject(new Error('對方沒有回應')), 40000); });
-        ch.on('auth-ok', (m) => { clearTimeout(timer); resolve(m); });
-        ch.on('auth-fail', (m) => { clearTimeout(timer); reject(new Error(m.reason)); });
-        ch.on('close', () => reject(new Error('連線被對方關閉')));
-      });
-    });
-    S.connecting = null;
-    const recent = [{ id, name: result.name, ts: Date.now() }, ...(S.settings.recent || []).filter((r) => r.id !== id)].slice(0, 8);
-    S.settings = await xk.settings.set({ recent });
-    renderHome();
-    openClientSession(ch, remotePeer, result, viewOnly, pending.pendingScreen);
-  } catch (e) {
-    S.connecting = null;
-    if (ch) ch.close();
-    toast('連線失敗：' + errMsg(e), 'err');
-  } finally {
-    btn.disabled = false; btn.textContent = '連線並操控';
-  }
-}
-
-function openClientSession(ch, remotePeer, info, viewOnly, pendingScreen) {
-  const video = $('#rvideo');
-  const vwrap = $('#vwrap');
-  const sess = S.client = { ch, remotePeer, name: info.name, os: info.os, allow: info.allow, viewOnly, screenCall: null, timers: [] };
-  // 第二條資料通道專門傳檔，避免大檔案卡住滑鼠鍵盤
-  const fconn = S.peer.connect(remotePeer, { label: 'xk-file', reliable: true, serialization: 'binary' });
-  fconn.on('open', () => ch.attachFile(fconn));
-
-  $('#sTitle').textContent = `${info.name}（${OS_NAME[info.os] || info.os}）`;
-  $('#stageMsg').textContent = '等待遠端畫面…';
-  $('#stageMsg').classList.remove('hidden');
-  const sel = $('#sDisplay');
-  sel.innerHTML = '';
-  info.displays.forEach((d, i) => sel.append(h('option', { value: d.id, selected: d.id === info.current }, `螢幕 ${i + 1}${d.primary ? '（主）' : ''} ${d.w}×${d.h}`)));
-  sel.classList.toggle('hidden', info.displays.length < 2);
-  sel.onchange = () => ch.send({ t: 'display', id: sel.value });
-  ch.on('display-ok', () => toast('已切換螢幕'));
-  ch.on('notice', (m) => toast(m.text));
-  ch.on('ctl-state', (m) => { sess.allow = m.allow; updControl(); toast(m.allow ? '對方已允許操控' : '對方暫停了操控，目前僅能檢視'); });
-
-  // 特殊鍵
-  const keys = $('#sKeys');
-  keys.innerHTML = '';
-  const combos = info.os === 'darwin'
-    ? [['⌘ Command', ['MetaLeft']], ['⌘ + Space（Spotlight）', ['MetaLeft', 'Space']], ['⌘ + Tab', ['MetaLeft', 'Tab']], ['⌘ + Q', ['MetaLeft', 'KeyQ']], ['⌥⌘ + Esc（強制結束）', ['AltLeft', 'MetaLeft', 'Escape']], ['⌘⇧ + 3（截圖）', ['MetaLeft', 'ShiftLeft', 'Digit3']]]
-    : [['Win 鍵（開始）', ['MetaLeft']], ['Ctrl + Shift + Esc（工作管理員）', ['ControlLeft', 'ShiftLeft', 'Escape']], ['Alt + Tab', ['AltLeft', 'Tab']], ['Alt + F4', ['AltLeft', 'F4']], ['Win + D（顯示桌面）', ['MetaLeft', 'KeyD']], ['Win + E（檔案總管）', ['MetaLeft', 'KeyE']], ['Win + R（執行）', ['MetaLeft', 'KeyR']], ['Print Screen', ['PrintScreen']]];
-  for (const [label, codes] of combos) keys.append(h('button', { onclick: () => canControl() && ch.send({ t: 'combo', codes, raw: true }) }, label));
-
-  // 聊天、檔案、教學
-  sess.chat = new ChatPanel($('#ctrlChat'), {
-    peer: S.peer, remotePeerId: () => remotePeer, myName: S.settings.deviceName, remoteName: () => sess.name,
-    displayId: () => null, isVisible: () => activePane() === 'chat' && !$('#drawer').classList.contains('collapsed'),
-    onUnread: (n) => { const b = $('#chatBadge'); b.textContent = n; b.classList.toggle('hidden', !n); },
-  });
-  sess.chat.attach(ch);
-  sess.files = new FileManager($('#ctrlFiles'));
-  sess.files.attach(ch);
-  sess.teach = new TeachController($('#ctrlTeach'), $('#teachHostStage'), {
-    peer: S.peer, remotePeerId: () => remotePeer,
-    showStage: (on) => { $('#teachHostStage').classList.toggle('hidden', !on); },
-  });
-  sess.teach.attach(ch);
-  setPane('chat');
-  sess.chat.sys(`已連線到 ${info.name}${viewOnly ? '（僅檢視）' : ''}`);
-  if (!viewOnly && !info.allow) sess.chat.sys('對方設定為不允許操控，目前僅能檢視');
-  if (!viewOnly && info.allow && info.inputOk === false) sess.chat.sys('⚠️ 對方的鍵鼠控制模組無法載入，可能無法操控');
-  if (info.os === 'darwin' && !viewOnly) sess.chat.sys('提示：對方是 Mac，需在「系統設定 › 隱私權與安全性」開啟「螢幕錄製」與「輔助使用」才能看到畫面與操控。');
-
-  // 畫面
-  sess.onScreen = (call) => {
-    sess.screenCall = call;
-    call.answer();
-    call.on('stream', (s) => { video.srcObject = s; video.play().catch(() => {}); $('#stageMsg').classList.add('hidden'); });
-    call.on('close', () => { if (S.client === sess) { $('#stageMsg').textContent = '遠端畫面已停止'; $('#stageMsg').classList.remove('hidden'); } });
-  };
-  if (pendingScreen) sess.onScreen(pendingScreen);
-  ch.send({ t: 'quality', q: S.settings.quality });
-
-  // 狀態列
-  let lastBytes = 0, lastTs = 0;
-  sess.timers.push(setInterval(async () => {
-    const pc = sess.screenCall && sess.screenCall.peerConnection;
-    if (!pc) return;
-    const st = await pc.getStats();
-    let fps = 0, bytes = 0, w = 0, hh = 0, route = '';
-    const pairs = {};
-    st.forEach((r) => {
-      if (r.type === 'inbound-rtp' && r.kind === 'video') { fps = r.framesPerSecond || 0; bytes = r.bytesReceived; w = r.frameWidth; hh = r.frameHeight; }
-      if (r.type === 'candidate-pair' && r.nominated && r.state === 'succeeded') pairs.sel = r;
-    });
-    if (pairs.sel) { const lc = st.get(pairs.sel.localCandidateId); route = lc && lc.candidateType === 'relay' ? '中繼' : '直連'; }
-    const now = Date.now();
-    const rate = lastTs ? ((bytes - lastBytes) * 8 / ((now - lastTs) / 1000) / 1e6).toFixed(1) : '0';
-    lastBytes = bytes; lastTs = now;
-    $('#sStat').textContent = `${route} · ${w}×${hh} · ${Math.round(fps)}fps · ${rate}Mbps`;
-  }, 2000));
-
-  // 操控
-  const canControl = () => !viewOnly && sess.allow && $('#sControl').checked && S.client === sess;
-  const updControl = () => {
-    $('#sControl').disabled = viewOnly || !sess.allow;
-    $('#sControl').checked = !viewOnly && sess.allow && $('#sControl').checked;
-    vwrap.classList.toggle('control', canControl());
-  };
-  $('#sControl').checked = !viewOnly;
-  updControl();
-  $('#sControl').onchange = updControl;
-  bindVideoInput(sess, video, canControl);
-
-  ch.on('close', () => endClient());
-  showView('session');
-  video.focus();
-}
-
-function bindVideoInput(sess, video, canControl) {
-  const send = (m) => { if (canControl()) sess.ch.send(m); };
-  const pos = (e) => {
-    const r = video.getBoundingClientRect();
-    const vw = video.videoWidth || r.width, vh = video.videoHeight || r.height;
-    const k = Math.min(r.width / vw, r.height / vh);
-    const cw = vw * k, chh = vh * k;
-    const ox = r.left + (r.width - cw) / 2, oy = r.top + (r.height - chh) / 2;
-    return { x: (e.clientX - ox) / cw, y: (e.clientY - oy) / chh };
-  };
-  let pendingMove = null, raf = 0;
-  const held = new Set();
-  sess.unbind = [];
-  const on = (el, ev, fn, opt) => { el.addEventListener(ev, fn, opt); sess.unbind.push(() => el.removeEventListener(ev, fn, opt)); };
-  on(video, 'mousemove', (e) => {
-    if (!canControl()) return;
-    pendingMove = pos(e);
-    if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (pendingMove) { send({ t: 'mm', ...pendingMove }); pendingMove = null; } });
-  });
-  on(video, 'mousedown', (e) => { if (!canControl()) return; e.preventDefault(); video.focus(); send({ t: 'md', b: e.button, ...pos(e) }); });
-  on(video, 'mouseup', (e) => { if (!canControl()) return; e.preventDefault(); send({ t: 'mu', b: e.button, ...pos(e) }); });
-  on(video, 'contextmenu', (e) => e.preventDefault());
-  on(video, 'wheel', (e) => {
-    if (!canControl()) return;
-    e.preventDefault();
-    const k = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 400 : 1;
-    send({ t: 'wheel', dx: e.deltaX * k, dy: e.deltaY * k });
-  }, { passive: false });
-  const isTyping = (e) => e.target.closest && e.target.closest('textarea, input, select, .modal:not(.hidden)');
-  on(window, 'keydown', (e) => {
-    if (!canControl() || isTyping(e) || !$('#teachHostStage').classList.contains('hidden')) return;
-    if (document.activeElement !== video) return;
-    e.preventDefault();
-    held.add(e.code);
-    send({ t: 'kd', code: e.code });
-  }, true);
-  on(window, 'keyup', (e) => {
-    if (!held.has(e.code)) return;
-    e.preventDefault();
-    held.delete(e.code);
-    send({ t: 'ku', code: e.code });
-  }, true);
-  const releaseAll = () => { for (const c of held) sess.ch.send({ t: 'ku', code: c }); held.clear(); };
-  on(window, 'blur', releaseAll);
-  on(video, 'blur', releaseAll);
-}
-
-function activePane() { const b = $('#drawer .dtabs button.active'); return b && b.dataset.pane; }
-function setPane(name) {
-  $$('#drawer .dtabs button').forEach((b) => b.classList.toggle('active', b.dataset.pane === name));
-  $$('#drawer .pane').forEach((p) => p.classList.toggle('active', p.dataset.pane === name));
-  if (name === 'chat' && S.client) S.client.chat.clearUnread();
-}
-
-function bindSession() {
-  $$('#drawer .dtabs button').forEach((b) => b.addEventListener('click', () => {
-    const d = $('#drawer');
-    if (d.classList.contains('collapsed')) d.classList.remove('collapsed');
-    setPane(b.dataset.pane);
-  }));
-  $('#sClose').onclick = () => S.client && S.client.ch.close();
-  $('#sFit').onclick = () => $('#vwrap').classList.toggle('actual');
-  let full = false;
-  $('#sFull').onclick = () => { full = !full; xk.win.fullscreen(full); $('#drawer').classList.toggle('collapsed', full); };
-  $('#sClipSend').onclick = async () => {
-    if (!S.client) return;
-    const text = await xk.clip.read();
-    if (!text) return toast('本機剪貼簿沒有文字');
-    S.client.ch.send({ t: 'clip-set', text });
-    toast('已把剪貼簿文字送到遠端，可在遠端按貼上');
-  };
-  $('#sClipGet').onclick = async () => {
-    if (!S.client) return;
-    try { const t = await S.client.ch.request('clip-get', [], 10000); await xk.clip.write(t || ''); toast(t ? '已取得遠端剪貼簿文字' : '遠端剪貼簿沒有文字'); } catch (e) { toast(errMsg(e), 'err'); }
-  };
-  $('#sShot').onclick = async () => {
-    const v = $('#rvideo');
-    if (!S.client || !v.videoWidth) return toast('尚未收到遠端畫面', 'err');
-    const c = document.createElement('canvas');
-    c.width = v.videoWidth; c.height = v.videoHeight;
-    c.getContext('2d').drawImage(v, 0, 0);
-    const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
-    const cropped = await cropDialog(blob, '擷取遠端畫面');
-    if (cropped && S.client) { await S.client.chat.sendImageBlob(cropped, `遠端畫面_${Date.now()}.png`); setPane('chat'); }
-  };
-}
-
-function endClient() {
-  const sess = S.client;
-  if (!sess) return;
-  S.client = null;
-  sess.timers.forEach(clearInterval);
-  (sess.unbind || []).forEach((f) => f());
-  try { sess.screenCall && sess.screenCall.close(); } catch {}
-  try { sess.chat.endVoice(false); } catch {}
-  try { sess.teach.end(false, true); } catch {}
-  const v = $('#rvideo'); v.srcObject = null;
-  $('#sStat').textContent = '';
-  closeModal(false);
-  xk.win.fullscreen(false);
-  $('#drawer').classList.remove('collapsed');
-  showView('home');
-  toast(`與 ${sess.name} 的連線已結束`);
 }
 
 boot().catch((e) => { console.error(e); toast('啟動失敗：' + errMsg(e), 'err', 15000); });

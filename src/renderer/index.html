@@ -11,6 +11,7 @@
   <div class="brand"><img src="../../assets/icon.png" alt=""><span>小柯機器人遠端連線</span></div>
   <nav class="tabs" id="mainTabs">
     <button data-view="home" class="active">連線</button>
+    <button data-view="multi">多台監看</button>
     <button data-view="folders">資料夾授權</button>
     <button data-view="settings">設定</button>
     <button data-view="about">說明</button>
@@ -116,9 +117,43 @@
     </div>
   </section>
 
+  <!-- 多台監看（一對多，導播式分割畫面） -->
+  <section class="view multi" id="view-multi">
+    <aside class="devside">
+      <h3>被控端清單 <span class="muted small" id="mCount"></span></h3>
+      <ul id="mDevices" class="devlist"></ul>
+      <div class="addform">
+        <input id="mAddId" placeholder="ID" inputmode="numeric" autocomplete="off">
+        <input id="mAddCode" type="password" placeholder="固定授權碼" autocomplete="new-password">
+        <input id="mAddName" placeholder="名稱（例如 教室 01，可留空）">
+        <button class="primary" id="mAdd">＋ 加入</button>
+      </div>
+      <p class="muted small">最多 20 台。分割畫面以低畫質縮圖顯示以節省頻寬，點一下（或按數字鍵 1～9）放大後才切換為高畫質並可操控。</p>
+    </aside>
+    <div class="mmain">
+      <div class="mbar">
+        <button class="primary" id="mConnectAll">▶ 全部連線</button>
+        <button id="mDisconnectAll">⏹ 全部中斷</button>
+        <label class="inline">版面
+          <select id="mLayout"><option value="auto">自動</option><option value="2x2">2×2</option><option value="3x3">3×3</option><option value="4x4">4×4</option><option value="5x4">5×4</option></select>
+        </label>
+        <span class="sep"></span>
+        <input id="mBroadcastText" placeholder="📢 全體廣播訊息…">
+        <button id="mBroadcast">廣播</button>
+        <span class="sep"></span>
+        <button id="mTeachOpen" title="把簡報同時推送給所有已連線的被控端">🎓 全體教學</button>
+        <button id="mTeachPrev">◀</button><button id="mTeachNext">▶</button>
+        <button id="mTeachEnd">結束教學</button>
+        <span class="muted small" id="mTeachState"></span>
+      </div>
+      <div class="mgrid" id="mGrid"></div>
+    </div>
+  </section>
+
   <!-- 主控端：遠端工作階段 -->
   <section class="view session" id="view-session">
     <div class="sbar">
+      <button id="sBack" class="hidden" title="回到多台分割畫面">▦ 返回分割</button>
       <b id="sTitle">遠端</b>
       <select id="sDisplay" title="切換遠端螢幕"></select>
       <label class="switch" title="開啟後可操作遠端滑鼠鍵盤"><input type="checkbox" id="sControl" checked><span>操控</span></label>

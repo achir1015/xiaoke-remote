@@ -138,6 +138,11 @@ export class TeachController {
     this.status.textContent = /\.(pptx?|ppsx?|odp|key)$/i.test(ps[0]) ? '正在把簡報轉成 PDF…' : '讀取中…';
     let deck;
     try { deck = await xk.teach.prepare(ps); } catch (e) { this.status.textContent = '❌ ' + errMsg(e); return; }
+    await this.startDeckWith(deck);
+  }
+
+  // 已準備好的簡報（多台廣播時共用同一份）
+  async startDeckWith(deck) {
     await this.end(true, true);
     this.deck = deck;
     this.stage.innerHTML = '';
@@ -182,7 +187,7 @@ export class TeachController {
     this.view.ink.style.pointerEvents = 'none';
     upd();
     this.keyHandler = (e) => {
-      if (!this.active || this.stage.classList.contains('hidden') || e.target.closest('textarea,input')) return;
+      if (!this.active || !this.stage.isConnected || this.stage.classList.contains('hidden') || e.target.closest('textarea,input')) return;
       if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); this.go(1); }
       if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); this.go(-1); }
     };
