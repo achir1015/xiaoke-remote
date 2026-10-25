@@ -114,6 +114,8 @@ try {
   await H.click('#mBtns button.primary');
   ok('[A→H] 收到線上版畫面', await until(() => w.wA.evaluate(() => document.querySelector('#rvideo').videoWidth > 0), 30000));
   ok('[A→H] 顯示線上版限制說明', await until(() => w.wA.evaluate(() => document.querySelector('#ctrlChat .msgs').textContent.includes('線上版'))));
+  ok('[A→H] 線上版被控端顯示「無法被操控」說明與下載連結', await H.evaluate(() => { const b = document.querySelector('.webhost'); return b && b.offsetParent !== null && b.textContent.includes('免安裝版'); }));
+  ok('[A→H] 分享整個螢幕時不顯示警告', await H.evaluate(() => document.querySelector('#hShareWarn').classList.contains('hidden') && document.querySelector('#hReshare').classList.contains('hidden')));
   await w.wA.fill('#ctrlChat textarea', '桌面版找線上版');
   await w.wA.press('#ctrlChat textarea', 'Enter');
   ok('[A→H] 聊天', await until(() => H.evaluate(() => document.querySelector('#hostChat .msgs').textContent.includes('桌面版找線上版'))));
@@ -149,6 +151,28 @@ try {
   await W.click('#sBack');
   await W.click('#mDisconnectAll');
   ok('[W 一對多] 全部中斷', await until(() => W.evaluate(() => window.__xk.links.size === 0)));
+
+  // ---- 4. 線上版被控端只分享一個視窗：雙方都要看到警告 ----
+  // 自動化無法在選擇畫面中點選單一視窗，改讓瀏覽器回報 displaySurface = 'window' 來測試警告邏輯
+  const b2 = await chromium.launch({ executablePath: CHROME, headless: false, args: ['--use-fake-ui-for-media-stream', '--auto-select-desktop-capture-source=Entire screen', '--lang=en-US'] });
+  try {
+    const c2 = await b2.newContext({ viewport: { width: 1400, height: 860 } });
+    await c2.addInitScript((st) => localStorage.setItem('xkr-settings', JSON.stringify(st)), { server, stun: '', deviceId: '700000003', deviceName: '線上被控H2' });
+    await c2.addInitScript(() => { const g = MediaStreamTrack.prototype.getSettings; MediaStreamTrack.prototype.getSettings = function () { const r = g.call(this); if (r.displaySurface) r.displaySurface = 'window'; return r; }; });
+    const H2 = await c2.newPage();
+    await H2.goto(`http://127.0.0.1:${WEB_PORT}/`);
+    await online(H2);
+    const code2 = await H2.evaluate(() => window.__xk.code);
+    await w.wA.fill('#remoteId', '700 000 003');
+    await w.wA.fill('#remoteCode', code2);
+    await w.wA.click('#btnConnect');
+    await until(() => H2.evaluate(() => !document.querySelector('#modal').classList.contains('hidden')));
+    await H2.click('#mBtns button.primary');
+    ok('[A→H2] 只分享視窗：被控端顯示警告與「改分享整個螢幕」', await until(() => H2.evaluate(() => !document.querySelector('#hShareWarn').classList.contains('hidden') && !document.querySelector('#hReshare').classList.contains('hidden'))));
+    ok('[A→H2] 只分享視窗：主控端收到提醒', await until(() => w.wA.evaluate(() => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('只分享了一個視窗')))));
+    await w.wA.click('#sClose');
+    await until(() => H2.evaluate(() => document.querySelector('#view-home').classList.contains('active')));
+  } finally { await b2.close().catch(() => {}); }
 } catch (e) {
   ok('測試執行', false, e.stack);
 } finally {

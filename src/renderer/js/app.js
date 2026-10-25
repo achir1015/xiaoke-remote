@@ -342,9 +342,36 @@ async function startHosting(ch, conn, hello) {
     ch, remotePeer: conn.peer, name: hello.name || '對方', os: hello.os, allow, call: null,
     log: (t) => { const d = h('div', {}, `${fmtTime(Date.now())}　${t}`); $('#hLog').prepend(d); },
   };
-  // 線上版：使用者在瀏覽器按「停止分享」時結束連線
-  if (WEB) stream.getVideoTracks()[0].addEventListener('ended', () => { if (S.host === sess) { toast('已停止分享畫面，連線結束'); ch.close(); } });
+  // 線上版：使用者在瀏覽器按「停止分享」時結束連線；只分享視窗或分頁時提醒改分享整個螢幕
+  const surfaceOf = (st) => { const t = st.getVideoTracks()[0]; return (t && t.getSettings && t.getSettings().displaySurface) || 'monitor'; };
+  const watchShare = (st) => {
+    st.getVideoTracks()[0].addEventListener('ended', () => { if (S.host === sess && stream === st) { toast('已停止分享畫面，連線結束'); ch.close(); } });
+    const partial = surfaceOf(st) !== 'monitor';
+    $('#hShareWarn').classList.toggle('hidden', !partial);
+    $('#hReshare').classList.toggle('hidden', !partial);
+    if (partial) {
+      const what = surfaceOf(st) === 'browser' ? '一個瀏覽器分頁' : '一個視窗';
+      toast(`你只分享了${what}，對方看不到其他視窗與對話框。建議改分享整個螢幕。`, 'err', 8000);
+      ch.send({ t: 'notice', text: `對方只分享了${what}，看不到其他視窗、選單與對話框（可請對方按「改分享整個螢幕」）` });
+    }
+  };
+  if (WEB) {
+    $('#hReshare').onclick = async () => {
+      try {
+        const ns = await xk.cap.displayStream(quality);
+        const sender = sess.call.peerConnection.getSenders().find((x) => x.track && x.track.kind === 'video');
+        await sender.replaceTrack(ns.getVideoTracks()[0]);
+        const old = stream;
+        stream = ns;
+        old.getTracks().forEach((t) => t.stop());
+        watchShare(ns);
+        tuneSender(sess.call, quality);
+        if (surfaceOf(ns) === 'monitor') { toast('已改為分享整個螢幕', 'ok'); ch.send({ t: 'notice', text: '對方已改為分享整個螢幕' }); }
+      } catch (e) { if (e.name !== 'NotAllowedError') toast('無法切換分享：' + errMsg(e), 'err'); }
+    };
+  }
   ch.send({ t: 'auth-ok', web: WEB, name: S.settings.deviceName, os: S.info.platform, allow, inputOk: S.info.inputAvailable, displays: sources.map((s) => ({ id: s.displayId, name: s.name, w: s.width, h: s.height, primary: s.primary })), current: src.displayId });
+  if (WEB) watchShare(stream); // 必須在 auth-ok 之後，主控端才收得到提醒
 
   const callRemote = () => {
     const call = S.peer.call(conn.peer, stream, { metadata: { kind: 'screen' } });

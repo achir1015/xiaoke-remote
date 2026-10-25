@@ -25,7 +25,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            args: --win nsis --x64
+            args: --win nsis portable --x64
             name: win-x64
           # Apple 晶片與 Intel 分開建置（同時建兩個 dmg 會發生 hdiutil 卸載失敗）；
           # Intel 版在 Apple 晶片機器上交叉建置，nut-js 的 libnut 是 universal binary

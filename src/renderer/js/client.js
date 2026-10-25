@@ -109,7 +109,7 @@ function createLink(ch, remotePeer, id, info, viewOnly, pendingScreen) {
   else if (info.os === 'darwin' && !viewOnly) link.chat.sys('提示：對方是 Mac，需在「系統設定 › 隱私權與安全性」開啟「螢幕錄製」與「輔助使用」才能看到畫面與操控。');
 
   ch.on('display-ok', () => toast('已切換螢幕'));
-  ch.on('notice', (m) => toast(`${link.name}：${m.text}`));
+  ch.on('notice', (m) => { toast(`${link.name}：${m.text}`, '', 8000); link.chat.sys('⚠️ ' + m.text); });
   ch.on('ctl-state', (m) => {
     link.allow = m.allow;
     if (S.focus === link) updControl();

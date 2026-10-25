@@ -213,3 +213,5 @@ main { flex: 1; min-height: 0; position: relative; }
 .web-only { display: none; }
 body.web .web-only { display: block; }
 body.web .desktop-only { display: none !important; }
+.webhost { margin-top: 14px; padding: 10px 14px; border: 1px solid var(--warn); border-radius: 10px; background: #3b2a06; }
+.webhost p { margin: 6px 0; }

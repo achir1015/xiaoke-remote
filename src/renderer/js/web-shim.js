@@ -219,7 +219,8 @@
   let current = null; // 被控端目前分享中的畫面
   async function displayStream(quality) {
     const s = await navigator.mediaDevices.getDisplayMedia({
-      video: { frameRate: { ideal: quality === 'high' ? 20 : 30 }, width: { max: 2560 }, height: { max: 1600 } },
+      // displaySurface: 'monitor' 讓選擇視窗預設停在「整個螢幕」：只分享視窗或分頁時，對方看不到其他視窗、選單與對話框
+      video: { displaySurface: 'monitor', frameRate: { ideal: quality === 'high' ? 20 : 30 }, width: { max: 2560 }, height: { max: 1600 } },
       audio: false, selfBrowserSurface: 'exclude', monitorTypeSurfaces: 'include', surfaceSwitching: 'include',
     });
     const t = s.getVideoTracks()[0];

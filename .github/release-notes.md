@@ -4,7 +4,8 @@
 
 | 系統 | 檔案 |
 |---|---|
-| Windows 11（64 位元） | `XiaokeRemote-版本-win-x64.exe` |
+| Windows 11（64 位元）安裝版 | `XiaokeRemote-版本-win-x64.exe` |
+| Windows 11 免安裝版（下載後直接執行，適合臨時讓人遠端協助） | `XiaokeRemote-版本-win-x64-portable.exe` |
 | macOS（Apple 晶片 M1/M2/M3/M4） | `XiaokeRemote-版本-mac-arm64.dmg` |
 | macOS（Intel） | `XiaokeRemote-版本-mac-x64.dmg` |
 

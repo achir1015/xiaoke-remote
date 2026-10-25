@@ -192,12 +192,20 @@
       <span class="spacer"></span>
       <label class="switch desktop-only"><input type="checkbox" id="hAllow" checked><span>允許操控</span></label>
       <button id="hMin" class="desktop-only" title="縮小視窗，不擋住對方操作的畫面">⤓ 縮小視窗</button>
+      <button class="web-inline hidden" id="hReshare" title="改為分享整個螢幕，對方才看得到所有視窗與對話框">🖥 改分享整個螢幕</button>
       <button class="danger" id="hClose">中斷連線</button>
     </div>
     <div class="sbody">
       <div class="hostinfo">
         <h2>對方正在協助你</h2>
         <p>對方可以看到你的螢幕<span id="hCtlText">並操作滑鼠鍵盤</span>。隨時可按「中斷連線」結束。</p>
+        <div class="webhost web-only">
+          <p>⚠️ <b>你使用的是線上版：對方只能看你的畫面，無法操控你的滑鼠鍵盤。</b>這是瀏覽器的安全限制（所有網頁都一樣）。</p>
+          <p>需要讓對方遠端操作（例如協助安裝軟體），請改用桌面版：
+            <a href="https://github.com/achir1015/xiaoke-remote/releases/latest" target="_blank">Windows 免安裝版（下載後直接執行）</a>，或
+            <a href="https://github.com/achir1015/xiaoke-remote/releases/latest" target="_blank">Windows 安裝版／Mac 版</a>。</p>
+          <p id="hShareWarn" class="hidden">⚠️ 你目前只分享了<b>一個視窗或分頁</b>，對方看不到其他視窗、選單與跳出的對話框。建議按上方「🖥 改分享整個螢幕」。</p>
+        </div>
         <div id="hLog" class="hlog"></div>
       </div>
       <aside class="drawer"><nav class="dtabs"><button class="active">💬 聊天</button></nav><div class="pane active" id="hostChat"></div></aside>
