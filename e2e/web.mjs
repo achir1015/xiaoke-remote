@@ -66,6 +66,7 @@ try {
   await W.fill('#remoteCode', 'BBBBBB');
   await W.click('#btnConnect');
   ok('[W→B] 進入遠端畫面', await until(() => W.evaluate(() => document.querySelector('#view-session').classList.contains('active'))));
+  ok('[W→B] 桌面版被控端不顯示「僅檢視」提示', await W.evaluate(() => document.querySelector('#stageWebBadge').classList.contains('hidden') && document.querySelector('#sSendPortable').classList.contains('hidden')));
   ok('[W→B] 收到畫面', await until(() => W.evaluate(() => document.querySelector('#rvideo').videoWidth > 0), 30000));
   const box = await W.locator('#rvideo').boundingBox();
   await W.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.6);
@@ -114,6 +115,9 @@ try {
   await H.click('#mBtns button.primary');
   ok('[A→H] 收到線上版畫面', await until(() => w.wA.evaluate(() => document.querySelector('#rvideo').videoWidth > 0), 30000));
   ok('[A→H] 顯示線上版限制說明', await until(() => w.wA.evaluate(() => document.querySelector('#ctrlChat .msgs').textContent.includes('線上版'))));
+  ok('[A→H] 主控端畫面顯示「線上版只能檢視」', await w.wA.evaluate(() => !document.querySelector('#stageWebBadge').classList.contains('hidden') && !document.querySelector('#sSendPortable').classList.contains('hidden')));
+  await w.wA.click('#sSendPortable');
+  ok('[A→H] 一鍵傳送免安裝版連結', await until(() => H.evaluate(() => { const a = [...document.querySelectorAll('#hostChat .msgs a')]; return a.some((x) => x.href.includes('releases/latest')); })));
   ok('[A→H] 線上版被控端顯示「無法被操控」說明與下載連結', await H.evaluate(() => { const b = document.querySelector('.webhost'); return b && b.offsetParent !== null && b.textContent.includes('免安裝版'); }));
   ok('[A→H] 分享整個螢幕時不顯示警告', await H.evaluate(() => document.querySelector('#hShareWarn').classList.contains('hidden') && document.querySelector('#hReshare').classList.contains('hidden')));
   await w.wA.fill('#ctrlChat textarea', '桌面版找線上版');

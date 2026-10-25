@@ -163,6 +163,7 @@
       <button id="sClipSend" title="把本機剪貼簿文字送到遠端">📋→ 剪貼簿</button>
       <button id="sClipGet" title="取得遠端剪貼簿文字">📋← 剪貼簿</button>
       <button id="sShot" title="擷取遠端畫面並傳到聊天">📸 擷取遠端</button>
+      <button id="sSendPortable" class="hidden" title="對方是線上版無法被操控：把 Windows 免安裝版下載連結傳到對方的聊天視窗">📨 傳送免安裝版連結</button>
       <button id="sFit" title="切換：符合視窗 / 原始大小">🔍 縮放</button>
       <button id="sFull" title="全螢幕">⛶</button>
       <span class="spacer"></span>
@@ -173,6 +174,7 @@
       <div class="stage" id="stage">
         <div class="vwrap" id="vwrap"><video id="rvideo" autoplay playsinline muted tabindex="0"></video></div>
         <div class="stage-msg" id="stageMsg">等待遠端畫面…</div>
+        <div class="stage-badge hidden" id="stageWebBadge">🌐 對方使用線上版：只能檢視畫面，無法操控滑鼠鍵盤。要操控請對方改用桌面版（可按上方「📨 傳送免安裝版連結」）</div>
         <div class="teach-host hidden" id="teachHostStage"></div>
       </div>
       <aside class="drawer" id="drawer">

@@ -38,6 +38,19 @@ export async function cropDialog(blob, title = '擷取畫面') {
   return new Promise((r) => c.toBlob(r, 'image/png'));
 }
 
+// 訊息中的網址變成可點的連結（桌面版會用系統瀏覽器開啟）
+function linkify(text) {
+  const out = [];
+  let last = 0;
+  String(text).replace(/https?:\/\/[^\s<>"'）)]+/g, (m, i) => {
+    if (i > last) out.push(text.slice(last, i));
+    out.push(h('a', { href: m, target: '_blank', rel: 'noopener' }, m));
+    last = i + m.length;
+  });
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
 export class ChatPanel {
   constructor(root, opts) {
     this.root = root;
@@ -84,7 +97,7 @@ export class ChatPanel {
 
   add({ who, text, ts, node }) {
     const el = h('div', { class: 'msg ' + (who === 'me' ? 'me' : who === 'sys' ? 'sys' : '') });
-    if (node) el.append(node); else el.append(text);
+    if (node) el.append(node); else el.append(...linkify(text));
     if (who !== 'sys') el.append(h('div', { class: 'meta' }, `${who === 'me' ? '我' : this.o.remoteName()} · ${fmtTime(ts || Date.now())}`));
     this.msgs.append(el);
     this.msgs.scrollTop = this.msgs.scrollHeight;

@@ -1,7 +1,7 @@
 {
   "name": "xiaoke-remote",
   "productName": "小柯機器人遠端連線",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "小柯機器人遠端連線：Windows 11 / macOS 遠端桌面（遠端操控、檔案傳輸、文字語音聊天、資料夾授權、線上教學）",
   "main": "src/main/main.js",
   "author": {

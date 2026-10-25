@@ -215,3 +215,5 @@ body.web .web-only { display: block; }
 body.web .desktop-only { display: none !important; }
 .webhost { margin-top: 14px; padding: 10px 14px; border: 1px solid var(--warn); border-radius: 10px; background: #3b2a06; }
 .webhost p { margin: 6px 0; }
+.stage-badge { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); max-width: 90%; background: rgba(59,42,6,.92); border: 1px solid var(--warn); border-radius: 8px; padding: 6px 12px; font-size: 13px; pointer-events: none; z-index: 5; text-align: center; }
+.msg a { color: #7dd3fc; word-break: break-all; }

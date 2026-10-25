@@ -254,6 +254,8 @@ export function focusLink(link) {
   for (const [label, codes] of combos) keys.append(h('button', { onclick: () => canControl() && link.ch.send({ t: 'combo', codes, raw: true }) }, label));
 
   $('#sStat').textContent = link.stat;
+  $('#stageWebBadge').classList.toggle('hidden', !info.web);
+  $('#sSendPortable').classList.toggle('hidden', !info.web);
   updControl();
   showFocusStream();
   bindVideoInput(link);
@@ -345,6 +347,16 @@ function bindSessionToolbar() {
   $('#sClipGet').onclick = async () => {
     if (!S.focus) return;
     try { const t = await S.focus.ch.request('clip-get', [], 10000); await xk.clip.write(t || ''); toast(t ? '已取得遠端剪貼簿文字' : '遠端剪貼簿沒有文字'); } catch (e) { toast(errMsg(e), 'err'); }
+  };
+  $('#sSendPortable').onclick = () => {
+    const l = S.focus;
+    if (!l) return;
+    const text = '你目前用的是線上版，我只能看畫面、無法幫你操作。請下載「Windows 免安裝版」（XiaokeRemote-…-win-x64-portable.exe），下載後直接執行，再把新的 ID 和授權碼告訴我：\nhttps://github.com/achir1015/xiaoke-remote/releases/latest\n（Mac 請下載 dmg 版）';
+    const ts = Date.now();
+    l.ch.send({ t: 'chat', text, ts });
+    l.chat.add({ who: 'me', text, ts });
+    setPane('chat');
+    toast('已把下載連結傳到對方的聊天視窗', 'ok');
   };
   $('#sShot').onclick = async () => {
     const v = $('#rvideo');
@@ -512,7 +524,7 @@ function renderGrid() {
       link.tileVideo = v; link.tileStat = tile.querySelector('.tstat');
       if (link.stream && v.srcObject !== link.stream) { v.srcObject = link.stream; v.play().catch(() => {}); }
     } else v.srcObject = null;
-    tile.querySelector('.tlabel').textContent = `${i + 1}　${d.name || fmtId(d.id)}${link && link.unread ? `　💬${link.unread}` : ''}`;
+    tile.querySelector('.tlabel').textContent = `${i + 1}　${d.name || fmtId(d.id)}${link && link.info.web ? '　🌐線上版·僅檢視' : ''}${link && link.unread ? `　💬${link.unread}` : ''}`;
     tile.querySelector('.tstat').textContent = link ? link.stat : '';
     const msg = tile.querySelector('.tmsg');
     msg.textContent = link ? (link.stream ? '' : '等待畫面…') : st.state + (st.state === '未連線' ? '（點一下連線）' : '');
