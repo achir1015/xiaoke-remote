@@ -1,7 +1,7 @@
 {
   "name": "xiaoke-remote",
   "productName": "小柯機器人遠端連線",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "小柯機器人遠端連線：Windows 11 / macOS 遠端桌面（遠端操控、檔案傳輸、文字語音聊天、資料夾授權、線上教學）",
   "main": "src/main/main.js",
   "author": {
@@ -17,7 +17,9 @@
     "dist:win": "electron-builder --win nsis --x64 --publish never",
     "dist:mac": "electron-builder --mac dmg --publish never",
     "e2e": "node e2e/run.mjs",
-    "e2e:multi": "node e2e/multi.mjs"
+    "e2e:multi": "node e2e/multi.mjs",
+    "web": "node scripts/build-web.mjs",
+    "e2e:web": "node e2e/web.mjs"
   },
   "dependencies": {
     "@nut-tree-fork/nut-js": "4.2.6",

@@ -208,3 +208,8 @@ main { flex: 1; min-height: 0; position: relative; }
 .tile .tmsg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 13px; text-align: center; padding: 8px; pointer-events: none; }
 .tile.off { opacity: .7; }
 .pane-inner { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+/* 線上版 */
+.web-only { display: none; }
+body.web .web-only { display: block; }
+body.web .desktop-only { display: none !important; }

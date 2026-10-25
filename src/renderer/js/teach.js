@@ -228,6 +228,11 @@ export class TeachController {
   toggleStage() { this.o.showStage(this.stage.classList.contains('hidden')); }
 
   async shareScreen() {
+    if (xk.web) { // 線上版：由瀏覽器選擇要推送的螢幕、視窗或分頁
+      let s;
+      try { s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15 } }, audio: false, selfBrowserSurface: 'exclude' }); } catch (e) { if (e.name !== 'NotAllowedError') toast('無法擷取畫面：' + errMsg(e), 'err'); return; }
+      return this._pushScreen(s, '老師的畫面');
+    }
     let sources;
     try { sources = await xk.cap.windows(); } catch (e) { return toast(errMsg(e), 'err'); }
     const grid = h('div', { class: 'srcgrid' });
@@ -236,10 +241,17 @@ export class TeachController {
     });
     const r = await Promise.race([picked, modal('選擇要推送給學生的螢幕或視窗', grid, [{ label: '取消', value: null }])]);
     if (!r) return;
-    await this.end(true, true);
+    let s;
     try {
-      this.screenStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: r.id, maxWidth: 1920, maxHeight: 1080, maxFrameRate: 15 } } });
+      s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: r.id, maxWidth: 1920, maxHeight: 1080, maxFrameRate: 15 } } });
     } catch (e) { return toast('無法擷取畫面：' + errMsg(e), 'err'); }
+    return this._pushScreen(s, r.name);
+  }
+
+  async _pushScreen(stream, name) {
+    const r = { name };
+    await this.end(true, true);
+    this.screenStream = stream;
     this.screenCall = this.o.peer.call(this.o.remotePeerId(), this.screenStream, { metadata: { kind: 'teach-screen', name: r.name } });
     this.screenStream.getVideoTracks()[0].addEventListener('ended', () => this.end(true));
     this.active = true;

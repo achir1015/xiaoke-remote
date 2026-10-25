@@ -24,6 +24,24 @@ Windows 11 ↔ Windows 11、Windows 11 ↔ macOS 的遠端協助工具。一端�
 
 安全設計：授權碼每次連線後自動更換（也可設固定授權碼做無人值守）、錯 5 次鎖定 1 分鐘、可要求被控端按「接受」、被控端可隨時暫停操控或中斷、檔案存取限制在授權資料夾內（阻擋 `..`、絕對路徑、符號連結跳出）。
 
+## 線上版（免安裝）
+
+👉 **https://achir1015.github.io/xiaoke-remote/**
+
+用 Chrome、Edge（建議）或 Safari 開啟就能使用，與桌面版互通（同一個 ID 系統，可互相連線），也有主控端與被控端兩種角色，一對多最多 20 台。
+
+| 功能 | 線上版當**主控端** | 線上版當**被控端** |
+|---|---|---|
+| 看對方畫面 | ✅ | ✅ 每次連線需按「接受」並選擇要分享的螢幕／視窗／分頁 |
+| 操控滑鼠鍵盤 | ✅ 可操控**桌面版**被控端 | ❌ 瀏覽器安全限制，網頁無法控制系統滑鼠鍵盤 |
+| 檔案上傳下載 | ✅ | ✅ 資料夾授權需 Chrome／Edge；每次重新開啟網頁要在「資料夾授權」按「🔓 重新允許」 |
+| 文字、語音、畫面擷取聊天 | ✅ | ✅ |
+| 線上教學 | ✅ PDF、圖片（PowerPoint 請先另存為 PDF） | ✅ |
+| 一對多監看（最多 20 台） | ✅ | — |
+| 遠端執行安裝程式 | ✅（對桌面版） | ❌ |
+
+需要被完整操控（例如遠端協助安裝軟體），被控端請使用桌面版。線上版的 ID、授權碼與設定存在這個瀏覽器裡；換瀏覽器或清除網站資料會得到新的 ID。主控端全螢幕時（Chrome／Edge）會鎖定鍵盤，Ctrl+W 等快捷鍵會送到遠端而不是關閉分頁。
+
 ## 安裝
 
 到 [Releases](https://github.com/achir1015/xiaoke-remote/releases/latest) 下載：
@@ -129,6 +147,9 @@ npm start                 # 執行
 npm test                  # 單元測試（資料夾授權沙箱）
 npm run e2e -- <測試資料夾>  # 端對端測試：開兩個實例互連，測試全部功能（資料夾內需有 deck.pdf、big.bin，可加 deck.pptx）
 npm run e2e:multi -- <測試資料夾>  # 一對多測試：1 台主控 + 3 台被控（分割、放大、廣播、全體教學、自動重連）
+npm run web               # 產生線上版網站到 site/（推送到 main 後由 GitHub Pages 自動發佈）
+node e2e/serve.mjs 8790   # 本機預覽線上版 http://127.0.0.1:8790/
+npm run e2e:web -- <測試資料夾>  # 線上版測試：Chrome 線上版 ↔ 桌面版互連、線上版一對多
 npm run dist:win          # 打包 Windows 安裝檔（dist/）
 npm run dist:mac          # 打包 macOS dmg（需在 Mac 上執行）
 ```
@@ -150,6 +171,8 @@ src/renderer/js/client.js  主控端：多連線管理、放大操控、多台�
 src/renderer/js/chat.js    文字、語音、畫面擷取、檔案互傳
 src/renderer/js/files.js   主控端檔案總管、被控端檔案服務
 src/renderer/js/teach.js   線上教學（pdf.js 投影片、雷射筆、畫筆、螢幕推送）
+src/renderer/js/web-shim.js  線上版：用瀏覽器 API 實作與桌面版主程序相同的介面
+scripts/build-web.mjs  產生線上版網站
 server/                自架 ID 伺服器 + coturn
 e2e/run.mjs            端對端測試
 ```

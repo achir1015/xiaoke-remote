@@ -15,6 +15,7 @@ S.saveSettings = (patch) => xk.settings.set(patch);
 window.__xk = S; // 自動化測試用
 
 const OS_NAME = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' };
+const WEB = !!xk.web;
 const INPUT_TYPES = ['mm', 'md', 'mu', 'wheel', 'kd', 'ku', 'combo'];
 
 // ================= 開機 =================
@@ -22,7 +23,10 @@ async function boot() {
   S.settings = await xk.settings.get();
   S.info = await xk.sys.info();
   $('#aboutVer').textContent = 'v' + S.info.version;
-  $('#aboutSys').textContent = `本機：${OS_NAME[S.info.platform] || S.info.platform}　鍵鼠控制模組：${S.info.inputAvailable ? '正常' : '無法載入（' + S.info.inputError + '）'}${S.info.profile ? '　設定檔：' + S.info.profile : ''}`;
+  $('#aboutSys').textContent = WEB
+    ? `本機：線上版（瀏覽器，${OS_NAME[S.info.platform] || S.info.platform}）`
+    : `本機：${OS_NAME[S.info.platform] || S.info.platform}　鍵鼠控制模組：${S.info.inputAvailable ? '正常' : '無法載入（' + S.info.inputError + '）'}${S.info.profile ? '　設定檔：' + S.info.profile : ''}`;
+  if (WEB) { document.body.classList.add('web'); showWebNotice(); }
   bindTabs();
   bindHome();
   bindFolders();
@@ -114,8 +118,17 @@ function bindHome() {
   $('#remoteId').addEventListener('input', (e) => { const v = fmtId(e.target.value).slice(0, 15); if (v !== e.target.value) e.target.value = v; });
 }
 
+function showWebNotice() {
+  const box = $('#permWarn');
+  box.classList.remove('hidden');
+  box.innerHTML = '';
+  box.append(h('b', {}, '🌐 你正在使用線上版。'),
+    h('div', { class: 'small' }, '作為主控端時功能與桌面版相同（可操控桌面版被控端，一對多最多 20 台）。作為被控端時：每次連線需按「接受」並選擇要分享的畫面；瀏覽器無法讓對方操控你的滑鼠鍵盤，也不能遠端執行安裝程式；資料夾授權需使用 Chrome 或 Edge。需要完整被控功能請 ',
+      h('a', { href: 'https://github.com/achir1015/xiaoke-remote/releases/latest', target: '_blank' }, '下載桌面版'), '。'));
+}
+
 async function checkMacPermissions() {
-  if (S.info.platform !== 'darwin') return;
+  if (WEB || S.info.platform !== 'darwin') return;
   const p = await xk.sys.permissions(false);
   const box = $('#permWarn');
   box.innerHTML = '';
@@ -132,10 +145,12 @@ async function checkMacPermissions() {
 // ================= 資料夾授權 =================
 function bindFolders() {
   $('#addFolder').onclick = async () => {
-    const p = await xk.local.pickFolder();
+    let p;
+    try { p = await xk.local.pickFolder(); } catch (e) { return toast(errMsg(e), 'err'); }
     if (!p) return;
     if ((S.settings.folders || []).some((f) => f.path === p)) return toast('這個資料夾已經在清單中');
-    await saveFolders([...(S.settings.folders || []), { path: p, perm: 'r' }]);
+    const name = WEB ? await xk.local.folderLabel(p) : undefined;
+    await saveFolders([...(S.settings.folders || []), { path: p, perm: 'r', ...(name ? { name } : {}) }]);
   };
   $('#addInstallFolder').onclick = async () => {
     const p = await xk.folders.installArea();
@@ -154,8 +169,14 @@ function renderFolders() {
   list.forEach((f, i) => {
     const sel = h('select', {}, ...[['r', '可讀'], ['w', '可寫'], ['rw', '可讀寫']].map(([v, t]) => h('option', { value: v, selected: f.perm === v }, t)));
     sel.onchange = () => { const l = [...list]; l[i] = { ...f, perm: sel.value }; saveFolders(l); };
-    tb.append(h('tr', {}, h('td', { class: 'path' }, f.name ? h('b', {}, f.name + '　') : '', f.path), h('td', {}, sel),
-      h('td', {}, h('button', { onclick: () => saveFolders(list.filter((_, j) => j !== i)) }, '移除'))));
+    const pathCell = h('td', { class: 'path' }, f.name ? h('b', {}, f.name + '　') : '', WEB ? '' : f.path);
+    tb.append(h('tr', {}, pathCell, h('td', {}, sel),
+      h('td', {}, h('button', { onclick: () => { if (WEB) xk.fs.forget(f.path); saveFolders(list.filter((_, j) => j !== i)); } }, '移除'))));
+    // 線上版：瀏覽器每次重新開啟網頁後，需要按一下重新允許存取資料夾
+    if (WEB) xk.fs.needsPermission(f.path).then((need) => {
+      if (!need) return;
+      pathCell.append(h('button', { class: 'primary', onclick: async () => { if (await xk.fs.grant(f.path)) { toast('已允許存取 ' + (f.name || ''), 'ok'); renderFolders(); } } }, '🔓 重新允許'));
+    });
   });
 }
 
@@ -271,6 +292,7 @@ function hostHandshake(conn) {
 function hostState(text) { $('#hostState').textContent = text; }
 
 async function captureDisplay(src, quality) {
+  if (WEB) return xk.cap.displayStream(quality); // 瀏覽器：由使用者選擇要分享的螢幕、視窗或分頁
   const w = Math.round(src.width * src.scale), hh = Math.round(src.height * src.scale);
   const k = Math.min(1, 2560 / w);
   const stream = await navigator.mediaDevices.getUserMedia({
@@ -320,7 +342,9 @@ async function startHosting(ch, conn, hello) {
     ch, remotePeer: conn.peer, name: hello.name || '對方', os: hello.os, allow, call: null,
     log: (t) => { const d = h('div', {}, `${fmtTime(Date.now())}　${t}`); $('#hLog').prepend(d); },
   };
-  ch.send({ t: 'auth-ok', name: S.settings.deviceName, os: S.info.platform, allow, inputOk: S.info.inputAvailable, displays: sources.map((s) => ({ id: s.displayId, name: s.name, w: s.width, h: s.height, primary: s.primary })), current: src.displayId });
+  // 線上版：使用者在瀏覽器按「停止分享」時結束連線
+  if (WEB) stream.getVideoTracks()[0].addEventListener('ended', () => { if (S.host === sess) { toast('已停止分享畫面，連線結束'); ch.close(); } });
+  ch.send({ t: 'auth-ok', web: WEB, name: S.settings.deviceName, os: S.info.platform, allow, inputOk: S.info.inputAvailable, displays: sources.map((s) => ({ id: s.displayId, name: s.name, w: s.width, h: s.height, primary: s.primary })), current: src.displayId });
 
   const callRemote = () => {
     const call = S.peer.call(conn.peer, stream, { metadata: { kind: 'screen' } });

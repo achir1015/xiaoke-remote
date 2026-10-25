@@ -60,7 +60,7 @@
       <p class="muted">主控端只能存取這裡列出的資料夾。<b>可讀</b>：瀏覽、下載、執行安裝檔（需你確認）；<b>可寫</b>：上傳、建立資料夾、刪除（看不到檔案）；<b>可讀寫</b>：全部。</p>
       <table class="tbl"><thead><tr><th>資料夾</th><th style="width:220px">權限</th><th style="width:80px"></th></tr></thead><tbody id="folderRows"></tbody></table>
       <div class="row"><button class="primary" id="addFolder">＋ 新增授權資料夾</button>
-        <button id="addInstallFolder" title="建立「遠端安裝區」資料夾並授權可讀寫，方便對方上傳安裝檔">＋ 建立「遠端安裝區」</button></div>
+        <button id="addInstallFolder" class="desktop-only" title="建立「遠端安裝區」資料夾並授權可讀寫，方便對方上傳安裝檔">＋ 建立「遠端安裝區」</button></div>
     </div>
   </section>
 
@@ -70,13 +70,14 @@
       <h2>⚙️ 設定</h2>
       <label>裝置名稱（對方會看到）</label><input id="setName">
       <fieldset><legend>被控端</legend>
-        <label><input type="checkbox" id="setConfirm"> 有人連入時需我按「接受」</label>
-        <label><input type="checkbox" id="setAllowControl"> 允許主控端操控滑鼠鍵盤</label>
+        <label class="desktop-only"><input type="checkbox" id="setConfirm"> 有人連入時需我按「接受」</label>
+        <label class="desktop-only"><input type="checkbox" id="setAllowControl"> 允許主控端操控滑鼠鍵盤</label>
+        <p class="web-only muted small">線上版：每次連線都需按「接受」並選擇分享的畫面；瀏覽器無法讓對方操控滑鼠鍵盤。</p>
         <label>授權碼模式</label>
         <select id="setCodeMode"><option value="random">每次連線後自動更換（較安全）</option><option value="fixed">固定授權碼（無人值守）</option></select>
         <div id="fixedCodeRow"><label>固定授權碼（至少 6 碼）</label><input id="setFixedCode" type="password" autocomplete="new-password"></div>
-        <label><input type="checkbox" id="setAutoMin"> 接受連線後自動縮小視窗（有聊天、檔案、語音、教學時會自動開啟）</label>
-        <label><input type="checkbox" id="setTray"> 關閉視窗時縮到系統匣，繼續接受連線</label>
+        <label class="desktop-only"><input type="checkbox" id="setAutoMin"> 接受連線後自動縮小視窗（有聊天、檔案、語音、教學時會自動開啟）</label>
+        <label class="desktop-only"><input type="checkbox" id="setTray"> 關閉視窗時縮到系統匣，繼續接受連線</label>
       </fieldset>
       <fieldset><legend>主控端</legend>
         <label><input type="checkbox" id="setSwap"> Mac ⌘ 與 Windows Ctrl 自動對應</label>
@@ -189,8 +190,8 @@
       <b>🔴 <span id="hTitle">遠端連線中</span></b>
       <span class="chip" id="hCtl">可操控</span>
       <span class="spacer"></span>
-      <label class="switch"><input type="checkbox" id="hAllow" checked><span>允許操控</span></label>
-      <button id="hMin" title="縮小視窗，不擋住對方操作的畫面">⤓ 縮小視窗</button>
+      <label class="switch desktop-only"><input type="checkbox" id="hAllow" checked><span>允許操控</span></label>
+      <button id="hMin" class="desktop-only" title="縮小視窗，不擋住對方操作的畫面">⤓ 縮小視窗</button>
       <button class="danger" id="hClose">中斷連線</button>
     </div>
     <div class="sbody">
@@ -215,6 +216,7 @@
 <div class="toasts" id="toasts"></div>
 <audio id="voiceAudio" autoplay></audio>
 
+<script src="js/web-shim.js"></script>
 <script src="../../node_modules/peerjs/dist/peerjs.min.js"></script>
 <script type="module" src="js/app.js"></script>
 </body>

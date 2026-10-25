@@ -1,3 +1,5 @@
+免安裝線上版：https://achir1015.github.io/xiaoke-remote/
+
 ## 下載
 
 | 系統 | 檔案 |

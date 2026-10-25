@@ -103,9 +103,10 @@ function createLink(ch, remotePeer, id, info, viewOnly, pendingScreen) {
   link.teach.attach(ch);
 
   link.chat.sys(`已連線到 ${info.name}${viewOnly ? '（僅檢視）' : ''}`);
-  if (!viewOnly && !info.allow) link.chat.sys('對方設定為不允許操控，目前僅能檢視');
+  if (!viewOnly && !info.allow && !info.web) link.chat.sys('對方設定為不允許操控，目前僅能檢視');
   if (!viewOnly && info.allow && info.inputOk === false) link.chat.sys('⚠️ 對方的鍵鼠控制模組無法載入，可能無法操控');
-  if (info.os === 'darwin' && !viewOnly) link.chat.sys('提示：對方是 Mac，需在「系統設定 › 隱私權與安全性」開啟「螢幕錄製」與「輔助使用」才能看到畫面與操控。');
+  if (info.web) link.chat.sys('對方使用線上版（瀏覽器）：可以看畫面、聊天、語音、傳檔與教學，但無法操控滑鼠鍵盤，也不能遠端執行程式。');
+  else if (info.os === 'darwin' && !viewOnly) link.chat.sys('提示：對方是 Mac，需在「系統設定 › 隱私權與安全性」開啟「螢幕錄製」與「輔助使用」才能看到畫面與操控。');
 
   ch.on('display-ok', () => toast('已切換螢幕'));
   ch.on('notice', (m) => toast(`${link.name}：${m.text}`));
